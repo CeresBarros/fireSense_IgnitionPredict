@@ -31,15 +31,15 @@ defineModule(sim, list(
                     desc = "optional named vector or list of character strings
                             mapping one or more variables in the model formula
                             to those in `data` objects."),
-    defineParameter("rescaleFactor", "numeric", (250 / 10000)^2,
-                    desc = "rescale predicted rates of fire counts at any given
-                            temporal and spatial resolutions by a factor
-                            `rescaleFactor = new_res / old_res`. `rescaleFactor`
-                            is the ratio between the data aggregation scale used
-                            for model fitting and the scale at which predictions
-                            are to be made. fireSense_IgnitionFit was fitted using
-                            the 10km resolution. If predictions are made at the 250m
-                            resolution (default here) we convert it in this way"),
+    # defineParameter("rescaleFactor", "numeric", (250 / 10000)^2,
+    #                 desc = "rescale predicted rates of fire counts at any given
+    #                         temporal and spatial resolutions by a factor
+    #                         `rescaleFactor = new_res / old_res`. `rescaleFactor`
+    #                         is the ratio between the data aggregation scale used
+    #                         for model fitting and the scale at which predictions
+    #                         are to be made. fireSense_IgnitionFit was fitted using
+    #                         the 10km resolution. If predictions are made at the 250m
+    #                         resolution (default here) we convert it in this way"),
     defineParameter(name = ".runInitialTime", class = "numeric",
                     default = start(sim),
                     desc = "when to start this module? By default, the start
@@ -65,7 +65,16 @@ defineModule(sim, list(
       objectClass = "data.frame, RasterLayer, RasterStack",
       sourceURL = NA_character_,
       desc = "One or more objects of class data.frame, RasterLayer or RasterStack in which to look for variables with which to predict."
-    )
+    ),
+    expectsInput("rescaleFactor", "numeric",
+                 desc = "rescale predicted rates of fire counts at any given
+                            temporal and spatial resolutions by a factor
+                            `rescaleFactor = new_res / old_res`. `rescaleFactor`
+                            is the ratio between the data aggregation scale used
+                            for model fitting and the scale at which predictions
+                            are to be made. fireSense_IgnitionFit was fitted using
+                            the 10km resolution. If predictions are made at the 250m
+                            resolution (default here) we convert it in this way"),
   ),
   outputObjects = createsOutput(
     objectName = "fireSense_IgnitionPredicted",
@@ -115,14 +124,14 @@ frequencyPredictRun <- function(sim) {
         model.matrix(c(data, sim[[P(sim)$modelObjName]]$knots)) %>%
         `%*%` (sim[[P(sim)$modelObjName]]$coef) %>%
         drop %>% sim[[P(sim)$modelObjName]]$family$linkinv(.) %>%
-        `*` (P(sim)$rescaleFactor)
+        `*` (sim$rescaleFactor)
     }
 
   ## Handling piecewise terms in a formula
   pw <- function(v, k) pmax(v - k, 0)
 
   # Load inputs in the data container
-  # list2env(as.list(envir(sim)), envir = mod)  
+  # list2env(as.list(envir(sim)), envir = mod)
   mod_env <- new.env(parent = emptyenv())
   for (x in P(sim)$data) {
     if (!is.null(sim[[x]])) {
@@ -132,7 +141,7 @@ frequencyPredictRun <- function(sim) {
         list2env(setNames(unstack(sim[[x]]), names(sim[[x]])), envir = mod_env)
       } else if (is(sim[[x]], "RasterLayer")) {
         mod_env[[x]] <- sim[[x]]
-      } else stop(moduleName, "> '", x, "' is not a data.frame, a RasterLayer, 
+      } else stop(moduleName, "> '", x, "' is not a data.frame, a RasterLayer,
                   a RasterStack or a RasterBrick.")
     }
   }
@@ -168,20 +177,19 @@ frequencyPredictRun <- function(sim) {
         model.matrix(mod_env) %>%
         `%*%`(sim[[P(sim)$modelObjName]]$coef) %>%
         drop %>% sim[[P(sim)$modelObjName]]$family$linkinv(.)
-    ) %>% `*`(P(sim)$rescaleFactor)
+    ) %>% `*`(sim$rescaleFactor)
   } else if (all(unlist(lapply(allxy, function(x) is(mod_env[[x]], "RasterLayer"))))) {
     covList <- mget(allxy, envir = mod_env, inherits = FALSE)
     tryCatch({
       raster::stack(covList)
     }, error = function(e){
-      stop("At least one of the covariate rasters does not align with the others. Please debug your inputs. 
+      stop("At least one of the covariate rasters does not align with the others. Please debug your inputs.
               Consider using a function like reproducible::postProcess on your layers to make sure these align.")
     })
-    sim$fireSense_IgnitionPredicted <- raster::stack(covList) %>% 
+    sim$fireSense_IgnitionPredicted <- raster::stack(covList) %>%
       raster::predict(model = formula_fire, fun = frequencyPredictRaster, na.rm = TRUE, sim = sim)
   } else {
     missing <- !allxy %in% ls(mod_env, all.names = TRUE)
-
     if (s <- sum(missing))
       stop(
         moduleName, "> '", allxy[missing][1L], "'",
@@ -214,4 +222,15 @@ frequencyPredictSave <- function(sim)
   )
 
   invisible(sim)
+}
+
+
+.inputObjects <- function(sim) {
+  # cacheTags <- c(currentModule(sim), "function:.inputObjects")
+  # dPath <- asPath(getOption("reproducible.destinationPath", dataPath(sim)), 1)
+  # message(currentModule(sim), ": using dataPath '", dPath, "'.")
+
+  if (!suppliedElsewhere("rescaleFactor", sim)) {
+    sim$rescaleFactor <- (250 / 10000)^2
+  }
 }
