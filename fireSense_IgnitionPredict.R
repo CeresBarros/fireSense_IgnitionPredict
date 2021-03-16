@@ -74,7 +74,7 @@ defineModule(sim, list(
                             for model fitting and the scale at which predictions
                             are to be made. fireSense_IgnitionFit was fitted using
                             the 10km resolution. If predictions are made at the 250m
-                            resolution (default here) we convert it in this way"),
+                            resolution (default here) we convert it in this way")
   ),
   outputObjects = createsOutput(
     objectName = "fireSense_IgnitionPredicted",
