@@ -116,16 +116,16 @@ frequencyPredictRun <- function(sim) {
   moduleName <- current(sim)$moduleName
   if (all(!is(sim[[P(sim)$modelObjName]], "fireSense_IgnitionFit"), !is(sim[[P(sim)$modelObjName]], "fireSense_FrequencyFit"))){
     stop(moduleName, "> '", P(sim)$modelObjName, "' should be of class 'fireSense_IgnitionFit' or 'fireSense_FrequencyFit'")
-}
+  }
 
   ## Toolbox: set of functions used internally by frequencyPredictRun
-    frequencyPredictRaster <- function(model, data, sim) {
-      model %>%
-        model.matrix(c(data, sim[[P(sim)$modelObjName]]$knots)) %>%
-        `%*%` (sim[[P(sim)$modelObjName]]$coef) %>%
-        drop %>% sim[[P(sim)$modelObjName]]$family$linkinv(.) %>%
-        `*` (sim$rescaleFactor)
-    }
+  frequencyPredictRaster <- function(model, data, sim) {
+    model %>%
+      model.matrix(c(data, sim[[P(sim)$modelObjName]]$knots)) %>%
+      `%*%` (sim[[P(sim)$modelObjName]]$coef) %>%
+      drop %>% sim[[P(sim)$modelObjName]]$family$linkinv(.) %>%
+      `*` (sim$rescaleFactor)
+  }
 
   ## Handling piecewise terms in a formula
   pw <- function(v, k) pmax(v - k, 0)
