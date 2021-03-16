@@ -233,4 +233,5 @@ frequencyPredictSave <- function(sim)
   if (!suppliedElsewhere("rescaleFactor", sim)) {
     sim$rescaleFactor <- (250 / 10000)^2
   }
+  return(invisible(sim))
 }
